@@ -72,13 +72,15 @@ func (conn *Conn) initAssociate(ctx context.Context, recv <-chan *Message) error
 // recvAssociate establishes an association requested by the peer, after the first STARTUP has been received.
 func (conn *Conn) recvAssociate(ctx context.Context) error {
 	conn.client.logger.Debug("recvAssociate called")
-	conn.client.logger.Debug("sending STARTUP")
+	conn.client.logger.Debug("creating STARTUP")
 	// Create a STARTUP request
 	msg, err := newSystemMessage(startup)
 	if err != nil {
 		return errors.Wrap(err, "Associate: error while creating system message")
 	}
+	conn.client.logger.Debug("STARTUP created")
 
+	conn.client.logger.Debug("sending STARTUP")
 	// Send it
 	err = conn.send(ctx, msg)
 	if err != nil {

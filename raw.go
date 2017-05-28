@@ -13,6 +13,7 @@ import (
 // send is the function that sends a message over a io.Writer
 //
 // WARNING: unsafe for concurrent use!
+// DEPRECATED: switching to pipeline infrastructure
 func send(ctx context.Context, w io.Writer, msg *Message) (int, error) {
 	// Create the local context
 	ctx, cancel := context.WithCancel(ctx)

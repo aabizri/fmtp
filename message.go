@@ -116,7 +116,7 @@ func (msg *Message) ReadFrom(r io.Reader) (int64, error) {
 	// Now, given the header-indicated size we create a buffer of that size
 	bodyLen := h.bodyLen()
 	content := make([]byte, bodyLen)
-	n2, err := r.Read(content)
+	n2, err := io.ReadFull(r, content)
 	total := int64(n1 + n2)
 	if err != nil {
 		return total, err
@@ -124,7 +124,7 @@ func (msg *Message) ReadFrom(r io.Reader) (int64, error) {
 		return total, errors.Errorf("ReadFrom: message body is smaller than expected (%d<%d)", n2, bodyLen)
 	}
 
-	// And we create a bufio.Reader from it
+	// And we create a bytes.Reader from it
 	body := bytes.NewReader(content)
 	msg.Body = body
 

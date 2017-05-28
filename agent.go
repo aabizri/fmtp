@@ -1,12 +1,9 @@
-// the agent is a connection's supervisor
-
 package fmtp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"time"
 
 	"github.com/pkg/errors"
@@ -60,9 +57,9 @@ func (conn *Conn) order(ctx context.Context, command command) error {
 // 	- When associated, it maintains the association and handles incoming/outgoing messages
 //
 // Problem: function too big, one way to fix it would be to split it into three:
-// 	- Agent (manages processes like association/deassociation/disconnections, and higher-level send/receive operations)
-// 	- Outgoing (send messages)
-// 	- Incoming (received messages)
+// 	- Agent (manages processes like association/deassociation/disconnections/integrity, and higher-level send/receive operations)
+// 	- Outgoing (send messages) [WIP]
+// 	- Incoming (received messages) [DONE]
 func (conn *Conn) agent() {
 	var (
 		// whether the connection is associated
@@ -71,35 +68,12 @@ func (conn *Conn) agent() {
 		ts = &time.Timer{}
 	)
 
-	// Create a watchdog context, which we will be able to cancel
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// Create the global context
+	ctx := context.Background()
 
-	// Launch a listener goroutine
-	msgChan := make(chan *Message)
-	errChan := make(chan error)
-	defer func() {
-		close(msgChan)
-		close(errChan)
-	}()
-	go func(ctx context.Context, mc chan *Message, ec chan error) {
-		for {
-			msg, err := conn.receive(ctx)
-			switch err {
-			case io.EOF: // do nothing
-			case context.Canceled, context.DeadlineExceeded:
-				return
-			case nil:
-				if ctx.Err() != nil {
-					return
-				}
-				mc <- msg
-			default:
-				ec <- err
-				conn.Close()
-			}
-		}
-	}(ctx, msgChan, errChan)
+	// Launch the listener
+	inDone := make(chan struct{})
+	msgChan, errChan := inAgent(conn.tcp, inDone, 3)
 
 	// Event loop, checking for arrival & new orders
 	for {
@@ -110,15 +84,14 @@ func (conn *Conn) agent() {
 			// If it is a system message, we handle it
 			case system:
 				// Write to buffer
-				buf := &bytes.Buffer{}
-				_, err := io.Copy(buf, msg.Body)
+				b, err := ioutil.ReadAll(msg.Body)
 				if err != nil {
 					fmt.Printf("error while copying message body: %v\n", err)
 				}
 
 				// Unmarshal
 				ss := &systemSig{}
-				err = ss.UnmarshalBinary(buf.Bytes())
+				err = ss.UnmarshalBinary(b)
 				if err != nil {
 					fmt.Printf("error while unmarshalling system message: %v\n", err)
 				}
@@ -224,6 +197,7 @@ func (conn *Conn) agent() {
 				case o := <-conn.orders:
 					o.done <- errors.New("connection is closing")
 				default:
+					inDone <- struct{}{}
 					close(conn.orders)
 					return
 				}
