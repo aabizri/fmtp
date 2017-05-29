@@ -10,17 +10,22 @@ import (
 
 const (
 	// values indicated in the specification
+	// these are correct for v1 and v2 of the specification document
 	version2  = 2
 	reserved2 = 0
 
-	// length of a header field
+	// length of a header field in bytes(3*uint8 + 1*uint16)
 	headerLen = 5
 
-	// maxLength that can be indicated
+	// maxLength that can be indicated in a header, as limited by the size of an uint16
 	maxLength = 65535
 
-	// MaxBodyLen is the maximum body len
-	MaxBodyLen = maxLength - headerLen
+	// MaxBodyLen is the maximum body len in bytes
+	MaxBodyLen = maxLength - headerLen // = 65530 bytes
+
+	// CompatBodyLen is the minimum size that shall be accepted by FMTP implementations
+	CompatBodyLen = 10240
+	maxCompatLen  = CompatBodyLen + headerLen
 )
 
 // header is a FMTP's message Header field
