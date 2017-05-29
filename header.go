@@ -19,8 +19,8 @@ const (
 	// maxLength that can be indicated
 	maxLength = 65535
 
-	// maxBodyLen is the maximum body len
-	maxBodyLen = maxLength - headerLen
+	// MaxBodyLen is the maximum body len
+	MaxBodyLen = maxLength - headerLen
 )
 
 // header is a FMTP's message Header field

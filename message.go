@@ -17,18 +17,8 @@ type Message struct {
 	Body   io.Reader
 }
 
-// bodyLen returns the size of the body if it can find it, it returns 0, false when it isn't defined
-func (msg *Message) bodyLen() (uint16, bool) {
-	// If we have no header or message is nil, we return 0, false
-	if msg == nil || msg.header == nil {
-		return 0, false
-	}
-
-	// If the len is indicated in the header, use it
-	if bLen := msg.header.bodyLen(); bLen != 0 {
-		return uint16(bLen), true
-	}
-
+// readerLen returns the size of a reader if it can find it
+func readerLen(r io.Reader) (int, bool) {
 	// Establish the interfaces
 	// Not Size() as Size returns the size of the underlying data, but not how much you'll read.
 	type lener interface {
@@ -39,15 +29,33 @@ func (msg *Message) bodyLen() (uint16, bool) {
 	}
 
 	// Switch over the interfaces
-	switch r := msg.Body.(type) {
+	switch r := r.(type) {
 	case lener:
-		return uint16(r.Len()), true
+		return r.Len(), true
 	case byteser:
-		return uint16(r.Bytes()), true
+		return r.Bytes(), true
 	}
 
-	// If we didn't find anything, return 0, false
 	return 0, false
+}
+
+// bodyLen returns the size of the body if it can find it, it returns 0, false when it isn't defined
+func (msg *Message) bodyLen() (int, bool) {
+	// If we have no header or message is nil, we return 0, false
+	if msg == nil || msg.header == nil {
+		return 0, false
+	}
+
+	// If the len is indicated in the header, use it
+	if bLen := msg.header.bodyLen(); bLen != 0 {
+		return bLen, true
+	}
+
+	// ReaderLen is the len of the reader
+	rlen, found := readerLen(msg.Body)
+
+	// If we didn't find anything, return 0, false
+	return rlen, found
 }
 
 // WriteTo writes a Message to the given io.Writer.
@@ -59,9 +67,12 @@ func (msg *Message) WriteTo(w io.Writer) (int64, error) {
 	}
 
 	// Read the body into a []byte
-	bbin, err := ioutil.ReadAll(msg.Body)
+	r := io.LimitReader(msg.Body, MaxBodyLen+1)
+	bbin, err := ioutil.ReadAll(r)
 	if err != nil {
 		return 0, err
+	} else if len(bbin) > MaxBodyLen {
+		return 0, errors.Errorf("WriteTo: cannot write message as body is larger than expected")
 	}
 
 	// Set the correct body length in the header
@@ -140,7 +151,14 @@ func (msg *Message) Typ() Typ {
 }
 
 // NewMessage returns a message of either Operational or Operator type
+// See MaxBodyLen for the maximum size of a message's body
 func NewMessage(typ Typ, r io.Reader) (*Message, error) {
+	// Advance warning if we can extract the length of the reader
+	blen, found := readerLen(r)
+	if found && blen > MaxBodyLen {
+		return nil, errors.Errorf("message body length bigger than maximum (%d > %d)", blen, MaxBodyLen)
+	}
+
 	return &Message{
 		header: newHeader(typ),
 		Body:   r,
