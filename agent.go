@@ -52,6 +52,19 @@ func (conn *Conn) order(ctx context.Context, command command) error {
 	}
 }
 
+func handleSys(msg *Message) (ss *systemSig, err error) {
+	// Write to buffer
+	b, err := ioutil.ReadAll(msg.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// Unmarshal
+	ss = &systemSig{}
+	err = ss.UnmarshalBinary(b)
+	return ss, err
+}
+
 // agent is the manager of a connection
 // 	- In its unassociated form, it listens to STARTUP commands
 // 	- When associated, it maintains the association and handles incoming/outgoing messages
@@ -83,27 +96,17 @@ func (conn *Conn) agent() {
 			switch msg.header.typ {
 			// If it is a system message, we handle it
 			case system:
-				// Write to buffer
-				b, err := ioutil.ReadAll(msg.Body)
-				if err != nil {
-					fmt.Printf("error while copying message body: %v\n", err)
-				}
-
 				// Unmarshal
-				ss := &systemSig{}
-				err = ss.UnmarshalBinary(b)
-				if err != nil {
-					fmt.Printf("error while unmarshalling system message: %v\n", err)
-				}
+				ss, err := handleSys(msg)
+				_ = err
 
 				// Compare
 				switch {
 				case ss.equals(startup):
 					err := conn.recvAssociate(ctx)
-					fmt.Println(err)
+					conn.handleErr(err)
 					associated = true
 					ts = time.NewTimer(conn.Tr)
-					_ = err
 				case ss.equals(heartbeat):
 					// do something
 				case ss.equals(shutdown):
@@ -128,7 +131,7 @@ func (conn *Conn) agent() {
 			conn.Close()
 			return
 
-		// In case we get got an order, process it
+		// In case we get got an order, we process it
 		case o := <-conn.orders:
 			conn.client.logger.Debug("received new order")
 			switch o.command {
@@ -190,7 +193,7 @@ func (conn *Conn) agent() {
 			// Reset timer
 			ts.Reset(conn.Ts)
 
-		// If we get a done signal, we close immediately, but not before emptying the orders channel
+		// If we get a done signal, we close, but not before emptying the orders channel
 		case <-conn.done:
 			for {
 				select {
