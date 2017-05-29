@@ -14,7 +14,7 @@ import (
 // A Message is an FMTP message
 type Message struct {
 	header *header
-	Body   io.Reader
+	Body   io.ReadCloser
 }
 
 // readerLen returns the size of a reader if it can find it
@@ -68,11 +68,12 @@ func (msg *Message) WriteTo(w io.Writer) (int64, error) {
 
 	// Read the body into a []byte
 	r := io.LimitReader(msg.Body, MaxBodyLen+1)
+	defer msg.Body.Close()
 	bbin, err := ioutil.ReadAll(r)
 	if err != nil {
 		return 0, err
 	} else if len(bbin) > MaxBodyLen {
-		return 0, errors.Errorf("WriteTo: cannot write message as body is larger than expected")
+		return 0, errors.New("WriteTo: cannot write message as body is larger than MaxBodyLen")
 	}
 
 	// Set the correct body length in the header
@@ -136,7 +137,7 @@ func (msg *Message) ReadFrom(r io.Reader) (int64, error) {
 	}
 
 	// And we create a bytes.Reader from it
-	body := bytes.NewReader(content)
+	body := ioutil.NopCloser(bytes.NewReader(content))
 	msg.Body = body
 
 	return total, nil
@@ -153,15 +154,29 @@ func (msg *Message) Typ() Typ {
 // NewMessage returns a message of either Operational or Operator type
 // See MaxBodyLen for the maximum size of a message's body
 func NewMessage(typ Typ, r io.Reader) (*Message, error) {
+	// Create the header
+	header := newHeader(typ)
+
 	// Advance warning if we can extract the length of the reader
 	blen, found := readerLen(r)
 	if found && blen > MaxBodyLen {
 		return nil, errors.Errorf("message body length bigger than maximum (%d > %d)", blen, MaxBodyLen)
+	} else if found {
+		header.setBodyLen(uint16(blen))
 	}
 
+	// If the given reader is a closer, we use it directly
+	var rc io.ReadCloser
+	if trc, ok := r.(io.ReadCloser); ok {
+		rc = trc
+	} else {
+		rc = ioutil.NopCloser(r)
+	}
+
+	// Done
 	return &Message{
-		header: newHeader(typ),
-		Body:   r,
+		header: header,
+		Body:   rc,
 	}, nil
 }
 
