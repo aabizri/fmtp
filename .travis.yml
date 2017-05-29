@@ -1,0 +1,11 @@
+language: go
+
+go:
+        - 1.7
+        - 1.8
+        - tip
+
+notification:
+        email:
+                on_success: never
+                on_failure: onchange
