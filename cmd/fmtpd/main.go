@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"runtime/pprof"
+	"sync"
 
 	"github.com/aabizri/fmtp"
 	"github.com/urfave/cli"
@@ -63,12 +64,15 @@ func action(c *cli.Context) error {
 	addr := c.String("addr")
 
 	// Create the main handler
+	lock := sync.Mutex{}
 	handler := fmtp.HandlerFunc(func(conn *fmtp.Conn, msg *fmtp.Message) {
+		lock.Lock()
 		fmt.Printf("Server> received new %s message:\n", msg.Typ().String())
 		if msg.Typ() == fmtp.Operator {
 			io.Copy(os.Stdout, msg.Body)
 			fmt.Println()
 		}
+		lock.Unlock()
 	})
 
 	// Create the server and its handlers
