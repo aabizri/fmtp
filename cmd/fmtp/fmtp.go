@@ -59,6 +59,11 @@ func main() {
 	shell := ishell.New()
 	shell.Actions.SetPrompt(normalPrompt)
 
+	// register the commands
+	for _, cmd := range icommands {
+		shell.AddCmd(cmd)
+	}
+
 	// Extract the address
 	if len(os.Args) >= 2 {
 		// Extract the address
@@ -88,15 +93,22 @@ func main() {
 		// Set the correct prompt
 		shell.Actions.SetPrompt(fmt.Sprintf("%s (%s)> ", prompt, address))
 	}
-
-	// display welcome info.
-	shell.Println("FMTP interactive shell")
-
-	// register the commands
-	for _, cmd := range icommands {
-		shell.AddCmd(cmd)
+	if len(os.Args) >= 3 {
+		fmt.Println(os.Args)
+		shell.Process(os.Args[2:]...)
+		fmt.Println("non-interactive mode")
+	} else {
+		interactive(shell)
 	}
+}
+
+func interactive(sh *ishell.Shell) {
+	// display welcome info.
+	sh.Println("FMTP interactive shell")
 
 	// run shell
-	shell.Run()
+	sh.Run()
+
+	// close
+	sh.Close()
 }
