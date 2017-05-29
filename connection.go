@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -56,10 +55,6 @@ type Conn struct {
 
 	// ShutdownNotify notifies the user that a shutdown has been initiated
 	ShutdownNotify func()
-
-	// tx and rx are how much has been outputted/inputted
-	TX uint64
-	RX uint64
 
 	// which client does this belong to ?
 	client *Client
@@ -262,24 +257,19 @@ func (conn *Conn) RemoteID() ID {
 	return conn.remote
 }
 
-// send sends a message over a connection, adding the size of the message to the tx value
+// send sends a message over a connection
 //
 // Warning: it is absolutely not safe for concurrent use
 func (conn *Conn) send(ctx context.Context, msg *Message) error {
-	n, err := send(ctx, conn.tcp, msg)
-	atomic.AddUint64(&conn.TX, uint64(n))
+	_, err := send(ctx, conn.tcp, msg)
 	return err
 }
 
-// receive receives a message from the connection, adding the size of the message to the rx value
+// receive receives a message from the connection
 //
 // Warning: it is absolutely not safe for concurrent use
 func (conn *Conn) receive(ctx context.Context) (*Message, error) {
-	msg, err := receive(ctx, conn.tcp)
-	if bl, ok := msg.bodyLen(); ok {
-		atomic.AddUint64(&conn.RX, uint64(bl))
-	}
-	return msg, err
+	return receive(ctx, conn.tcp)
 }
 
 // disconnect is the actual action taken by an agent when disconnecting
