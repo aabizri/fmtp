@@ -7,6 +7,13 @@ import (
 	"time"
 )
 
+// ListeningPort is the port a server should listen to.
+// It is not forced to use it, but it is highly recommended.
+const ListeningPort = "8500"
+
+// ExpectedPrefix is the prefix of FMTP systems from which FMTP systems IPv6 addresses are derived
+const ExpectedPrefix = "2001:4b50::/32"
+
 // A Handler receives and processes an FMTP message.
 type Handler interface {
 	ServeFMTP(conn *Conn, msg *Message)

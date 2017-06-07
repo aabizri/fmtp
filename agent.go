@@ -65,14 +65,16 @@ func handleSys(msg *Message) (ss *systemSig, err error) {
 	return ss, err
 }
 
-// agent is the manager of a connection
-// 	- In its unassociated form, it listens to STARTUP commands
-// 	- When associated, it maintains the association and handles incoming/outgoing messages
+// agent is the manager of a connection, it should implement a state machine with 6 states.
+// the states are
+// 	- idle (awaiting further instructions)
+// 	- connPending (connection pending)
+// 	- idPending (waiting for ID)
+// 	- ready (connection established)
+// 	- assPending (sent started, waiting for response)
+// 	- dataReady (association established, ready to send data)
 //
-// Problem: function too big, one way to fix it would be to split it into three:
-// 	- Agent (manages processes like association/deassociation/disconnections/integrity, and higher-level send/receive operations)
-// 	- Outgoing (send messages) [WIP]
-// 	- Incoming (received messages) [DONE]
+// TODO: Create a state machine with state functions
 func (conn *Conn) agent() {
 	var (
 		// whether the connection is associated

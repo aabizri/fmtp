@@ -15,8 +15,8 @@ import (
 // These are the default timer durations
 const (
 	DefaultTi = 12 * time.Second
-	DefaultTs = 12 * time.Second
-	DefaultTr = 12 * time.Second
+	DefaultTs = 60 * time.Second
+	DefaultTr = 120 * time.Second
 )
 
 // Client is what allows you to do FMTP requests.

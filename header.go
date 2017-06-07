@@ -18,10 +18,10 @@ const (
 	headerLen = 5
 
 	// maxLength that can be indicated in a header, as limited by the size of an uint16
-	maxLength = 65535
+	maxLength = 2<<15 - 1 // 65535 is the max length
 
 	// MaxBodyLen is the maximum body len in bytes
-	MaxBodyLen = maxLength - headerLen // = 65530 bytes
+	MaxBodyLen = maxLength - headerLen // 65530 is the max body length
 
 	// CompatBodyLen is the minimum size that shall be accepted by FMTP implementations
 	CompatBodyLen = 10240
@@ -48,7 +48,7 @@ func (h *header) Check() error {
 		return nil
 	}
 	if h.length < headerLen {
-		return errors.New("header.Check(): error, indicated length cannot be smaller than nominal header length")
+		return errors.New("header.Check: error, indicated length cannot be smaller than nominal header length")
 	}
 	return nil
 }
